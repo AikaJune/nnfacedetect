@@ -45,5 +45,7 @@ void nn_init( int ninput,
 		double (*output_actp)(double),
 	       	neural_network_t *out_nn );
 
+void nn_free( neural_network_t *nn );
+
 
 #endif

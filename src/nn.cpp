@@ -107,8 +107,10 @@ void nn_init( int ninput,
 
 }
 
-void nn_eval( neural_network_t nn )
+
+void nn_eval( neural_network_t *nn )
 {
+
 }
 
 
