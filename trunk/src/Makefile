@@ -15,9 +15,9 @@
 # compilation flags
 CPPFLAGS += -I. 
 CPPFLAGS += -I../include
-CPPFLAGS += -Wall -Wno-write-strings -g
+CPPFLAGS += -Wall -Wno-write-strings -g -pg
 
-LDFLAGS += -L../lib
+LDFLAGS += -L../lib -pg
 
 LIBDIR = ../lib
 INCDIR = ../include
