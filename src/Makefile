@@ -15,9 +15,9 @@
 # compilation flags
 CPPFLAGS += -I. 
 CPPFLAGS += -I../include
-CPPFLAGS += -Wall -Wno-write-strings -g -pg
+CPPFLAGS += -Wall -Wno-write-strings -g 
 
-LDFLAGS += -L../lib -pg
+LDFLAGS += -L../lib 
 
 LIBDIR = ../lib
 INCDIR = ../include
@@ -29,35 +29,50 @@ BINDIR = ../bin
 EXECS		= $(EXEC1) $(EXEC2) $(EXEC3) $(EXEC4) $(EXEC5) $(EXEC6) 
 
 # library name and contents
-NAME1		= nn
+NAME1		= image
 LIB1		= lib$(NAME1).a
 LIB1SRC		= $(NAME1).cpp	
 INC1		= $(NAME1).h
 
+NAME2		= logpolar
+LIB2		= lib$(NAME2).a
+LIB2SRC		= $(NAME2).cpp	
+INC2		= $(NAME2).h
+
+NAME3		= nn
+LIB3		= lib$(NAME3).a
+LIB3SRC		= $(NAME3).cpp	
+INC3		= $(NAME3).h
+
 #LIBS		= $(LIB1) 
 LIBS 		+= -l$(NAME1)
+LIBS 		+= -l$(NAME2)
+LIBS 		+= -l$(NAME3)
 
 # executable name and contents
 EXEC1		= nn-bin
 EXEC1SRC	= $(EXEC1).cpp
 EXEC1DEP	= installlib installinclude
 
+ALLLIB        =  $(LIB1) $(LIB2) $(LIB3)
+ALLINC         =  $(INC1) $(INC2) $(INC3)
+
 
 all:	buildlibs installlib installinclude bin installbin
 
-buildlibs: $(LIB1)
+buildlibs: $(ALLLIB)
 
 installbin: bin
 	-install $(INSTALLFLAGS) $(EXECS) $(BINDIR)
 
 installlib: buildlibs
-	-install $(INSTALLFLAGS) $(LIB1) $(LIBDIR)
+	-install $(INSTALLFLAGS) $(ALLLIB) $(LIBDIR)
 
 installinclude: 
-	-install $(INSTALLFLAGS) $(INC1) $(INCDIR)
+	-install $(INSTALLFLAGS) $(ALLINC) $(INCDIR)
 
-$(LIB1): $(LIB1SRC:%.cpp=%.o) 
-	ar -r $@ $^
+lib%.a: %.o
+	ar -r $@ $^\
 
 bin: $(EXECS)
 
