@@ -2,10 +2,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <image.h>
+#include <logpolar.h>
 
 double logistic_func( double in )
 {
-    return 1 / ( 1 + exp( -in ) );
+    ////////////////////////////////////
+    // Replace with taylor expansion for
+    // increase in speed. Profiling sho-
+    // ws this is a bottle-neck. Actual
+    // speed up is negligable :(
+    ////////////////////////////////////
+   // return 1 / (2 - in + in*in/2 );
+    return 1 / ( 1 + exp( -in ) ); 
 }
 
 double logistic_func_deriv( double in )
@@ -112,9 +121,12 @@ void eval_sample( neural_network_t *nn,
     dbg_print_nn( nn, " eval " );
 }
 
+#define SQR(x) ( (x) * (x) )
+
 void train_sample( neural_network_t *nn,
         sample_t sample,
-        int niter )
+        int niter,
+        double *err2 = 0 )
 {
     for ( int i = 0; i < NINPUT; i++ )
     {
@@ -126,19 +138,42 @@ void train_sample( neural_network_t *nn,
         nn_backpropagate( nn, sample.output,
                 NOUTPUT );
     }
+
+    if ( err2 )
+    {
+        *err2 = 0;
+        for ( int i = 0; i < NOUTPUT; i++ )
+        {
+            *err2 += SQR(nn->ol[i].v - sample.output[i]);
+        }
+    }
 }
+
 
 void train_samples( neural_network_t *nn,
         sample_t* samples,
         int nsamples,
         int nglobal_iter,
-        int nlocal_iter )
+        int nlocal_iter,
+        double *tol = 0 )
 {
+    double max_err2, err2, *perr2;
+    perr2 = tol ? &err2 : 0;
     for ( int i = 0; i < nglobal_iter; i++ )
     {
+        max_err2 = 0;
         for ( int j = 0; j < nsamples; j++ )
         {
-            train_sample( nn, samples[j], nlocal_iter );
+            train_sample( nn, samples[j], nlocal_iter, perr2 );
+            if ( tol && err2 > max_err2 )
+            {
+                max_err2 = err2;
+            }
+        }
+        if ( tol && sqrt(max_err2) <= *tol )
+        {
+            printf( "tolerance reached in global iter %i\n", i );
+            break;
         }
     }
 }
@@ -146,6 +181,21 @@ void train_samples( neural_network_t *nn,
 
 int main()
 {
+    image_t src, dst;
+    readRawPbm(  "test.pgm", &src );
+    int nWedges, nRings, maxDist;
+    nWedges = 300;
+    nRings = 300;
+    maxDist = 600;
+    dst.ncols = nWedges;
+    dst.nrows = nRings;
+    dst.nchan = 1;
+    dst.depth = 8;
+    dst.data = new unsigned char[dst.ncols * dst.nrows];
+    logpolarXform( &src, &dst, nWedges, nRings, maxDist );
+    writeRawPbm( "log.pgm", &dst );
+    return 0;
+
     // set up sample
     sample_t s[4];// s1, s2, s3, s4;
     s[0].input = {0, 0};
@@ -179,8 +229,9 @@ int main()
             &nn );
 
 
+    double tol = .001;
     // train samples
-    train_samples( &nn, s, 4, 1000000, 1 );
+    train_samples( &nn, s, 4, 1000000, 1, &tol );
 
     eval_sample( &nn, s[0] );
     eval_sample( &nn, s[1] );
