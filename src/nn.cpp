@@ -4,6 +4,88 @@
 #include <math.h>
 
 #define RMAX  97451
+#define SQR(x) ( (x) * (x) )
+
+void nn_init_sample( neural_network_t *nn, sample_t *s )
+{
+    s->input = new double[nn->nil];
+    s->output= new double[nn->nol];
+}
+
+void nn_free_sample(  sample_t *s )
+{
+    delete[] s->input;
+    delete[] s->output;
+}
+
+
+void nn_eval_sample( neural_network_t *nn,
+        sample_t sample )
+
+{
+    for ( int i = 0; i < nn->nil; i++ )
+    {
+        nn->il[i].v = sample.input[i];
+    }
+    nn_eval( nn );
+    //dbg_print_nn( nn, " eval " );
+}
+
+
+void train_sample( neural_network_t *nn,
+        sample_t sample,
+        int niter,
+        double *err2 = 0 )
+{
+    for ( int i = 0; i < nn->nil; i++ )
+    {
+        nn->il[i].v = sample.input[i];
+    }
+    for ( int i = 0; i < niter; i++ )
+    {
+        nn_eval( nn );
+        nn_backpropagate( nn, sample.output,
+                nn->nol );
+    }
+
+    if ( err2 )
+    {
+        *err2 = 0;
+        for ( int i = 0; i < nn->nol; i++ )
+        {
+            *err2 += SQR(nn->ol[i].v - sample.output[i]);
+        }
+    }
+}
+
+
+void nn_train_samples( neural_network_t *nn,
+        sample_t* samples,
+        int nsamples,
+        int nglobal_iter,
+        int nlocal_iter,
+        double *tol )
+{
+    double max_err2, err2, *perr2;
+    perr2 = tol ? &err2 : 0;
+    for ( int i = 0; i < nglobal_iter; i++ )
+    {
+        max_err2 = 0;
+        for ( int j = 0; j < nsamples; j++ )
+        {
+            train_sample( nn, samples[j], nlocal_iter, perr2 );
+            if ( tol && err2 > max_err2 )
+            {
+                max_err2 = err2;
+            }
+        }
+        if ( tol && sqrt(max_err2) <= *tol )
+        {
+            printf( "tolerance reached in global iter %i\n", i );
+            break;
+        }
+    }
+}
 
 ////////////////////////////////////////////////////////
 // Performs the dot product of input neurons with weigh-

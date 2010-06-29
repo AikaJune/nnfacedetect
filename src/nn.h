@@ -1,6 +1,10 @@
 #ifndef NN_H
 #define NN_H
 
+///////////////////////////////////////////////////////////////////////////////
+// NN architecture and backpropagation
+///////////////////////////////////////////////////////////////////////////////
+
 struct _neuron;
 
 typedef struct _neuron neuron_t;
@@ -57,4 +61,29 @@ void nn_eval( neural_network_t *nn );
 void nn_backpropagate( neural_network_t *nn,
         double *desired_output,
         int nout );
+
+///////////////////////////////////////////////////////////////////////////////
+// Training related functions
+///////////////////////////////////////////////////////////////////////////////
+
+typedef struct
+{
+    double *input;
+    double *output;
+} sample_t;
+
+
+void nn_init_sample( neural_network_t *nn, sample_t *s );
+void nn_free_sample(  sample_t *s );
+
+void nn_train_samples( neural_network_t *nn,
+        sample_t* samples,
+        int nsamples,
+        int nglobal_iter,
+        int nlocal_iter,
+        double *tol = 0 );
+
+void nn_eval_sample( neural_network_t *nn,
+        sample_t sample );
+
 #endif

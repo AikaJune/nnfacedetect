@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <getopt.h>
+#include <string.h>
 #include <image.h>
 #include <logpolar.h>
 
@@ -100,112 +102,132 @@ void dbg_print_nn( neural_network_t *nn, char *comment=  0, bool print_hidden = 
 
 #define RSEED 1000
 
-#define NINPUT 2
-#define NOUTPUT 1
-
-typedef struct
+bool load_sample( char *filename, sample_t *s, int *ninput, int *noutput )
 {
-    double input[NINPUT];
-    double output[NOUTPUT];
-} sample_t;
-
-void eval_sample( neural_network_t *nn,
-        sample_t sample )
-
-{
-    for ( int i = 0; i < NINPUT; i++ )
+    FILE *stream = 0;
+    stream = fopen( filename, "r" );
+    if ( !stream )
     {
-        nn->il[i].v = sample.input[i];
+        fprintf( stderr, "failed to open sample file '%s'\n", filename );
+        return false;
     }
-    nn_eval( nn );
-    dbg_print_nn( nn, " eval " );
+
+    char imagePath[512];
+    if ( fgets( imagePath, 512, stream ) == NULL )
+    {
+        fprintf( stderr, "failed to get image path from sample file '%s'\n", filename );
+        fclose( stream );
+        return false;
+    }
+    char *pch;
+    pch = strchr( imagePath, '\n' );
+    if ( !pch )
+    {
+        fprintf( stderr, "failed to read image path supplied by sample file '%s'\n", filename );
+        fclose( stream );
+        return false;
+    }
+    *pch = '\0';
+
+    image_t src;
+    if ( !image_read_rawpbm( imagePath, &src ) )
+    {
+        fprintf( stderr, "failed to load image file '%s' supplied by sample file '%s'\n", imagePath, filename );
+        fclose( stream );
+        return false;
+    }  
+    int n = src.ncols * src.nrows;
+    // setup sample input
+    if ( ninput )
+    {
+        *ninput = n;
+    }
+
+    s->input = new double[ n ];
+    for ( int i = 0; i < n; i++ )
+    {
+        s->input[i] = src.data[i];
+    }
+
+    delete[] src.data;
+
+    // setup the output
+    int _noutput;
+    if ( fscanf( stream, "%d\n", &_noutput ) < 1  )
+    {
+        fprintf( stderr, "error parsing sample file '%s'\n", filename );
+        delete[] s->input;
+        fclose( stream );
+        return false;
+    }
+    if ( noutput )
+    {
+        *noutput = _noutput;
+    }
+
+    s->output = new double[ _noutput ];
+    double t;
+    for ( int i = 0; i < _noutput; i++ )
+    {
+        if ( fscanf( stream, "%lf", &t ) < 1 )
+        {
+            fprintf( stderr, "error parsing sample file '%s'\n", filename );
+            delete[] s->input;
+            delete[] s->output;
+            fclose( stream );
+            return false;
+        }
+        s->output[i] = t;
+    }
+    
+    fclose( stream );
+    return true;
 }
 
-#define SQR(x) ( (x) * (x) )
-
-void train_sample( neural_network_t *nn,
-        sample_t sample,
-        int niter,
-        double *err2 = 0 )
+int main( int argc, char *argv[] )
 {
-    for ( int i = 0; i < NINPUT; i++ )
+
+#if 0
+    sample_t smp;
+    int nin, nout;
+    load_sample( "test.smpl", &smp, &nin, &nout ); 
+    printf( "%i %i\n", nin, nout );
+    for ( int i = 0; i < nin; i++ )
     {
-        nn->il[i].v = sample.input[i];
+        printf( "in[%i]=%g\n", i, smp.input[i] ); 
     }
-    for ( int i = 0; i < niter; i++ )
+    for ( int i = 0; i < nout; i++ )
     {
-        nn_eval( nn );
-        nn_backpropagate( nn, sample.output,
-                NOUTPUT );
+        printf( "out[%i]=%g\n", i, smp.output[i] ); 
     }
-
-    if ( err2 )
-    {
-        *err2 = 0;
-        for ( int i = 0; i < NOUTPUT; i++ )
-        {
-            *err2 += SQR(nn->ol[i].v - sample.output[i]);
-        }
-    }
-}
-
-
-void train_samples( neural_network_t *nn,
-        sample_t* samples,
-        int nsamples,
-        int nglobal_iter,
-        int nlocal_iter,
-        double *tol = 0 )
-{
-    double max_err2, err2, *perr2;
-    perr2 = tol ? &err2 : 0;
-    for ( int i = 0; i < nglobal_iter; i++ )
-    {
-        max_err2 = 0;
-        for ( int j = 0; j < nsamples; j++ )
-        {
-            train_sample( nn, samples[j], nlocal_iter, perr2 );
-            if ( tol && err2 > max_err2 )
-            {
-                max_err2 = err2;
-            }
-        }
-        if ( tol && sqrt(max_err2) <= *tol )
-        {
-            printf( "tolerance reached in global iter %i\n", i );
-            break;
-        }
-    }
-}
-
-
-int main()
-{
-    image_t src, dst;
-    readRawPbm(  "test.pgm", &src );
-    int nWedges, nRings, maxDist;
-    nWedges = 300;
-    nRings = 300;
-    maxDist = 600;
-    dst.ncols = nWedges;
-    dst.nrows = nRings;
-    dst.nchan = 1;
-    dst.depth = 8;
-    dst.data = new unsigned char[dst.ncols * dst.nrows];
-    logpolarXform( &src, &dst, nWedges, nRings, maxDist );
-    writeRawPbm( "log.pgm", &dst );
     return 0;
-
+#endif
     // set up sample
     sample_t s[4];// s1, s2, s3, s4;
-    s[0].input = {0, 0};
-    s[0].output = { 0 };
-    s[1].input = {0, 1};
-    s[1].output = { 1 };
-    s[2].input = {1, 0};
-    s[2].output = { 1 };
-    s[3].input = {1, 1};
-    s[3].output = { 0 };
+    s[0].input = new double[2];
+    s[1].input = new double[2];
+    s[2].input = new double[2];
+    s[3].input = new double[2];
+    s[0].output = new double[1];
+    s[1].output = new double[1];
+    s[2].output = new double[1];
+    s[3].output = new double[1];
+
+    s[0].input[0] = 0;
+    s[0].input[1] = 0;
+    s[0].output[0] =  0 ;
+
+    s[1].input[0] = 0;
+    s[1].input[1] = 1;
+    s[1].output[0] =  1 ;
+
+    s[2].input[0] = 1;
+    s[2].input[1] = 0;
+    s[2].output[0] =  1 ;
+
+    s[3].input[0] = 1;
+    s[3].input[1] = 1;
+    s[3].output[0] =  0 ;
 
     srand( RSEED );
     neural_network_t nn;
@@ -229,14 +251,19 @@ int main()
             &nn );
 
 
-    double tol = .001;
+    double tol = .0001;
     // train samples
-    train_samples( &nn, s, 4, 1000000, 1, &tol );
+    nn_train_samples( &nn, s, 4, 1000000, 1, &tol );
 
-    eval_sample( &nn, s[0] );
-    eval_sample( &nn, s[1] );
-    eval_sample( &nn, s[2] );
-    eval_sample( &nn, s[3] );
+    nn_eval_sample( &nn, s[0] );
+    dbg_print_nn( &nn );
+    nn_eval_sample( &nn, s[1] );
+    dbg_print_nn( &nn );
+    nn_eval_sample( &nn, s[2] );
+    dbg_print_nn( &nn );
+    nn_eval_sample( &nn, s[3] );
+    dbg_print_nn( &nn );
+
 
     nn_free( &nn );
     return 0;

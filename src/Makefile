@@ -11,13 +11,15 @@
 # PARTICULAR PURPOSE.
 #
 #####################################################################
+#PROFILEFLAGS = -pg -fprofile-arcs -ftest-coverage
+
 
 # compilation flags
 CPPFLAGS += -I. 
 CPPFLAGS += -I../include
-CPPFLAGS += -Wall -Wno-write-strings -g 
+CPPFLAGS += -Wall -Wno-write-strings -g $(PROFILEFLAGS)
 
-LDFLAGS += -L../lib 
+LDFLAGS += -L../lib $(PROFILEFLAGS)
 
 LIBDIR = ../lib
 INCDIR = ../include
@@ -53,6 +55,10 @@ LIBS 		+= -l$(NAME3)
 EXEC1		= nn-bin
 EXEC1SRC	= $(EXEC1).cpp
 EXEC1DEP	= installlib installinclude
+
+EXEC2		= im2logpol
+EXEC2SRC	= $(EXEC2).cpp
+EXEC2DEP	= installlib installinclude
 
 ALLLIB        =  $(LIB1) $(LIB2) $(LIB3)
 ALLINC         =  $(INC1) $(INC2) $(INC3)
