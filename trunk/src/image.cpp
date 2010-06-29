@@ -3,16 +3,53 @@
 #include<string.h>
 #include<ctype.h>
 #include<math.h>
+#include <assert.h>
 #include "image.h"
 
+void image_normalize( image_t *src, image_t *dst )
+{
+    assert( src->ncols == dst->ncols
+            && src->nrows == dst->ncols
+            && src->nchan == 1
+           && dst->nchan == 1
+           && src->depth == 8
+           && src->depth == 8 );
+    // calulate mean & std 
+    unsigned long long sum2, sum;
+    sum2 = 0;
+    sum = 0;
+    unsigned char v;
+    unsigned int n = src->ncols * src->nrows;
+    for ( int i = 0; i < src->ncols * src->nrows; i++ )
+    {
+        v = src->data[i];
+        sum2 += v*v;
+        sum +=  v;
+    }
+    double norm, mean;
+    mean = sum / double(n);
+    norm = sum2;
+    norm -= n * mean * mean;
+    norm = sqrt(norm);
+    for ( int i = 0; i < src->ncols * src->nrows; i++ )
+    {
+        dst->data[i] = (double(src->data[i] - mean) / norm + 1 ) * 127.5;
+    }
+}
 
-void bilinearInterp1Chan( image_t *src, double x, double y, double *dst )
+void image_bilinear_interp1chan( image_t *src, double x, double y, double *dst )
 {
     double top, bot, left, right;
+    double dlx, drx, dty, dby;
     left = floor(x);
     right = ceil(x);
     top = floor(y);
     bot = ceil(y);
+    dlx = right - x;
+    drx = x - left;
+    dty = bot - y;
+    dby = y - top;
+   
 
     if ( x < 0 || x >= src->ncols
             || y < 0 || y >= src->nrows
@@ -21,8 +58,27 @@ void bilinearInterp1Chan( image_t *src, double x, double y, double *dst )
             || top < 0 || top >= src->nrows
             || bot < 0 || bot >= src->nrows  )
     {
-        *dst = 0;
-        return;
+        int itop, ibot, ileft, iright;
+        itop = top;
+        ibot = bot;
+        ileft = left;
+        iright = right;
+        itop = itop % src->nrows;
+        if ( itop < 0 )
+            itop += src->nrows;
+        ibot = ibot % src->nrows;
+        if ( ibot < 0 )
+            ibot += src->nrows;
+        ileft = ileft % src->ncols;
+        if ( ileft < 0 )
+            ileft += src->ncols;
+        iright = iright % src->ncols;
+        if ( iright < 0 )
+            iright += src->ncols;
+        top = itop;
+        bot = ibot;
+        left = ileft;
+        right = iright;
     }
 
     unsigned char *top_row, *bot_row;
@@ -38,8 +94,8 @@ void bilinearInterp1Chan( image_t *src, double x, double y, double *dst )
     }
     else
     {
-        iterp_top = ( right - x ) * top_row[ byte_step * (int)left ]  
-            + (x - left ) * top_row[ byte_step * (int)right ];
+        iterp_top = ( dlx ) * top_row[ byte_step * (int)left ]  
+            + ( drx ) * top_row[ byte_step * (int)right ];
     }
     if ( right == left )
     {
@@ -47,8 +103,8 @@ void bilinearInterp1Chan( image_t *src, double x, double y, double *dst )
     }
     else
     {
-        iterp_bot = ( right - x ) * bot_row[ byte_step * (int)left ]  
-            + (x - left ) * bot_row[ byte_step * (int)right ];
+        iterp_bot = ( dlx ) * bot_row[ byte_step * (int)left ]  
+            + ( drx ) * bot_row[ byte_step * (int)right ];
     }
     if ( top == bot )
     {
@@ -56,20 +112,12 @@ void bilinearInterp1Chan( image_t *src, double x, double y, double *dst )
     }
     else
     {
-        *dst = ( y - top ) * iterp_bot + ( bot - y ) * iterp_top;
-    }
-}
-
-void bilinearInterp( image_t *src, double x, double y, double *dst )
-{
-    for ( int i = 0; i < src->nchan; i++ )
-    {
-        bilinearInterp1Chan( src, x, y, ( dst + i ) );
+        *dst = ( dby ) * iterp_bot + ( dty ) * iterp_top;
     }
 }
 
 
-bool writeRawPbm( char *filename, image_t *im )
+bool image_write_rawpbm( char *filename, image_t *im )
 {
 
 	FILE *stream = 0;
@@ -134,7 +182,7 @@ bool is_string( char *s )
     return true;
 }
 
-bool readRawPbm( char *filename, image_t *im )
+bool image_read_rawpbm( char *filename, image_t *im )
 {
 	FILE *stream = 0;
 	

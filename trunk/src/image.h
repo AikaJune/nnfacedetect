@@ -20,8 +20,9 @@ typedef struct _image
 
 } image_t;
 
-bool readRawPbm( char *filename, image_t *im );
-bool writeRawPbm( char *filename, image_t *im );
-void bilinearInterp( image_t *src, double x, double y, double *dst );
+void image_normalize( image_t *src, image_t *dst );
+bool image_read_rawpbm( char *filename, image_t *im );
+bool image_write_rawpbm( char *filename, image_t *im );
+void image_bilinear_interp1chan( image_t *src, double x, double y, double *dst);
 
 #endif

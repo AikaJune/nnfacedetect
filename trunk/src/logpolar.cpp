@@ -4,7 +4,7 @@
 #include <math.h>
 #include "logpolar.h"
 
-void logpolarXform( image_t *src,
+void logpolar_xform( image_t *src,
         image_t *dst,
         int nWedges,
         int nRings,
@@ -51,11 +51,57 @@ void logpolarXform( image_t *src,
             rs = r * rss;
             x = exp( rs ) * cos( ws ) + cx;
             y = exp( rs ) * sin( ws ) + cy;
-            bilinearInterp( src, x, y, &interp );
+            image_bilinear_interp1chan( src, x, y, &interp );
             row[w] = interp;
 
         }
 
     }
 
+}
+
+
+double atan2( double y, double x )
+{
+    double r = atan( fabs( y / x ) );
+    if ( x < 0 && y >= 0 )
+        r = M_PI - r;
+    else if( x < 0 && y < 0 )
+        r = M_PI + r;
+    else if( x > 0 && y < 0 )
+        r = 2*M_PI - r;
+    else if ( x == 0 && y > 0 )
+        r = M_PI /2 ;
+    else if ( x == 0 && y < 0 )
+        r = M_PI / 2 * 3;
+    else if ( x >= 0 && y ==0 )
+        r = 0;
+    return r;
+}
+
+void logpolar_inv_xform( image_t *src,
+        image_t *dst,
+        int nWedges,
+        int nRings,
+        int maxDist )
+{
+    int n = 2*maxDist + 1;
+    int c = maxDist + 1;
+    assert( dst->ncols == n
+            && dst->ncols == n );
+    
+    double t, r, R, J, interp;
+    for ( int x = -maxDist-1; x < maxDist; x++ )
+    {
+        for ( int y = -maxDist-1; y < maxDist; y++ )
+        {
+            t = atan2( y,x );
+            r = sqrt( x*x + y*y );
+            r = r < 1 ? 1 : r;
+            R = log( r ) / log( maxDist ) * ( nRings - 1 );
+            J = t / ( 2 * M_PI ) * (nWedges);
+            image_bilinear_interp1chan( src, J, R, &interp );
+            dst->data[(c+y)*n + c+x] = interp;
+        }
+    }
 }
