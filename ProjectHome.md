@@ -1,0 +1,1 @@
+Using a neural network written in C, this is an attempt at face detection.
